@@ -1,0 +1,49 @@
+import { createSelector } from '@reduxjs/toolkit';
+import { getConfig } from '../../../utils/getConfig';
+import { parseNumber } from '../../../utils/parseStringToType';
+
+export const getAuthenticated = (state) => state.user.authenticated;
+const getTotalSize = (state) => state.user.totalSize;
+const getAssetsTotalSize = (state) => state.assets.totalSize;
+export const getSketchOwner = (state) => state.project.owner;
+const getUserId = (state) => state.user.id;
+const limit = parseNumber(getConfig('UPLOAD_LIMIT')) || 250000000;
+
+export const getCanUploadMedia = createSelector(
+  getAuthenticated,
+  getTotalSize,
+  (authenticated, totalSize) => {
+    const currentSize = totalSize || 0;
+    if (!authenticated) return false;
+    // eventually do the same thing for verified when
+    // email verification actually works
+    if (currentSize >= limit) return false;
+    return true;
+  }
+);
+
+export const getreachedTotalSizeLimit = createSelector(
+  getTotalSize,
+  getAssetsTotalSize,
+  (totalSize, assetsTotalSize) => {
+    const currentSize = totalSize || assetsTotalSize || 0;
+    if (currentSize >= limit) return true;
+    // if (totalSize > 1000) return true;
+    return false;
+  }
+);
+
+export const getIsUserOwner = createSelector(
+  getSketchOwner,
+  getUserId,
+  (sketchOwner, userId) => {
+    if (!sketchOwner) return false;
+    return sketchOwner.id === userId;
+  }
+);
+
+export const selectCanEditSketch = createSelector(
+  getSketchOwner,
+  getIsUserOwner,
+  (sketchOwner, isOwner) => !sketchOwner || isOwner
+);

@@ -1,0 +1,132 @@
+const webpack = require('webpack');
+const path = require('path');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
+const ReactRefreshPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+const ESLintPlugin = require('eslint-webpack-plugin');
+const loadEnv = require('../loadEnv');
+
+if (process.env.NODE_ENV === 'development') {
+  loadEnv();
+}
+
+module.exports = {
+  mode: 'development',
+  devtool: 'eval-cheap-module-source-map',
+  entry: {
+    app: ['@gatsbyjs/webpack-hot-middleware/client', './client/index.jsx'],
+    previewApp: [
+      '@gatsbyjs/webpack-hot-middleware/client',
+      './client/modules/Preview/previewIndex.jsx'
+    ],
+    previewScripts: [
+      '@gatsbyjs/webpack-hot-middleware/client',
+      'regenerator-runtime/runtime',
+      path.resolve(__dirname, '../client/utils/previewEntry.js')
+    ]
+  },
+  output: {
+    path: `${__dirname}`,
+    filename: '[name].js',
+    publicPath: '/'
+  },
+  resolve: {
+    extensions: ['.js', '.jsx', '.ts', '.tsx'],
+    modules: ['client', 'server', 'node_modules'],
+    fallback: {
+      os: require.resolve('os-browserify/browser')
+    }
+  },
+  plugins: [
+    // Skipped for e2e runs: linting is ~60% of each dev build and is already
+    // covered by `npm run lint` in CI and the pre-commit hook.
+    ...(process.env.APP_ENV === 'e2e'
+      ? []
+      : [
+          new ESLintPlugin({
+            extensions: ['js', 'jsx', 'ts', 'tsx']
+          })
+        ]),
+    new webpack.HotModuleReplacementPlugin(),
+    new ReactRefreshPlugin({
+      overlay: {
+        sockIntegration: 'whm'
+      }
+    }),
+    new webpack.DefinePlugin({
+      'process.env': {
+        NODE_ENV: JSON.stringify('development')
+      }
+    }),
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: path.resolve(__dirname, '../translations/locales'),
+          to: path.resolve(__dirname, 'locales')
+        }
+      ]
+    })
+  ],
+  module: {
+    rules: [
+      {
+        test: /\.[jt]sx?$/,
+        exclude: [/node_modules/, /.+\.config.js/],
+        use: [
+          {
+            loader: 'babel-loader',
+            options: {
+              cacheDirectory: true
+            }
+          }
+        ]
+      },
+      {
+        test: /main\.scss$/,
+        use: ['style-loader', 'css-loader', 'sass-loader']
+      },
+      {
+        test: /\.(mp3)$/,
+        type: 'asset/resource'
+      },
+      {
+        test: /\.(png)$/,
+        type: 'asset/resource',
+        generator: {
+          filename: 'images/[name].[ext]'
+        }
+      },
+      {
+        test: /fonts\/.*\.(eot|ttf|woff|woff2)$/,
+        type: 'asset/resource'
+      },
+      {
+        test: /\.svg$/,
+        oneOf: [
+          {
+            resourceQuery: /byContent/,
+            type: 'asset/source'
+          },
+          {
+            resourceQuery: /byUrl/,
+            type: 'asset/resource'
+          },
+          {
+            use: {
+              loader: '@svgr/webpack',
+              options: {
+                svgoConfig: {
+                  plugins: [
+                    {
+                      name: 'removeViewBox',
+                      active: false
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+};

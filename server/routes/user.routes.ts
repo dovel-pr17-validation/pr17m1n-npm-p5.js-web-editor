@@ -1,0 +1,98 @@
+import { Router } from 'express';
+import * as UserController from '../controllers/user.controller';
+import { isAuthenticated } from '../middleware/isAuthenticated';
+import { requireStepUp } from '../middleware/requireStepUp';
+
+const router = Router();
+
+/**
+ * ===============
+ * STEP-UP RE-AUTHENTICATION
+ * ===============
+ */
+// POST /account/step-up (verify password or emailed code)
+router.post('/account/step-up', isAuthenticated, UserController.verifyStepUp);
+// POST /account/step-up/code (send a code to the account email; passwordless accounts only)
+router.post(
+  '/account/step-up/code',
+  isAuthenticated,
+  UserController.initiateStepUpCode
+);
+
+/**
+ * ===============
+ * SIGN UP
+ * ===============
+ */
+// POST /signup
+router.post('/signup', UserController.createUser);
+// GET /signup/duplicate_check
+router.get('/signup/duplicate_check', UserController.duplicateUserCheck);
+// POST /verify/send
+router.post('/verify/send', UserController.emailVerificationInitiate);
+// GET /verify
+router.get('/verify', UserController.verifyEmail);
+
+/**
+ * ===============
+ * API KEYS
+ * ===============
+ */
+// POST /account/api-keys
+router.post(
+  '/account/api-keys',
+  isAuthenticated,
+  requireStepUp,
+  UserController.createApiKey
+);
+// DELETE /account/api-keys/:keyId
+router.delete(
+  '/account/api-keys/:keyId',
+  isAuthenticated,
+  UserController.removeApiKey
+);
+
+/**
+ * ===============
+ * AUTH MANAGEMENT
+ * ===============
+ */
+// POST /reset-password
+router.post('/reset-password', UserController.resetPasswordInitiate);
+// GET /reset-password/:token
+router.get('/reset-password/:token', UserController.validateResetPasswordToken);
+// POST /reset-password/:token
+router.post('/reset-password/:token', UserController.updatePassword);
+// PUT /account (updating username, email or password while logged in)
+router.put('/account', isAuthenticated, UserController.updateSettings);
+// DELETE /auth/github
+router.delete(
+  '/auth/github',
+  isAuthenticated,
+  requireStepUp,
+  UserController.unlinkGithub
+);
+// DELETE /auth/google
+router.delete(
+  '/auth/google',
+  isAuthenticated,
+  requireStepUp,
+  UserController.unlinkGoogle
+);
+
+/**
+ * ===============
+ * USER PREFERENCES
+ * ===============
+ */
+// PUT /cookie-consent
+router.put(
+  '/cookie-consent',
+  isAuthenticated,
+  UserController.updateCookieConsent
+);
+// PUT /preferences
+router.put('/preferences', isAuthenticated, UserController.updatePreferences);
+
+// eslint-disable-next-line import/no-default-export
+export default router;

@@ -1,0 +1,88 @@
+import nodemailer from 'nodemailer';
+import mg from 'nodemailer-mailgun-transport';
+import { RenderedMailerData } from '../types/email';
+
+// When EMAIL_TRANSPORT=smtp, emails are sent over plain SMTP (e.g. to a local
+// mail catcher like Mailpit during e2e tests) instead of Mailgun.
+// MAILPIT_SMTP_HOST defaults to localhost; set it to the Mailpit hostname
+// when the server runs in Docker while Mailpit runs in another container.
+const useSmtpTransport = process.env.EMAIL_TRANSPORT === 'smtp';
+
+function createTransport(): nodemailer.Transporter {
+  if (useSmtpTransport) {
+    const { MAILPIT_SMTP_PORT } = process.env;
+    if (!MAILPIT_SMTP_PORT) {
+      throw new Error(
+        'MAILPIT_SMTP_PORT missing from environment (.env or .env.e2e)'
+      );
+    }
+    if (Number.isNaN(Number(MAILPIT_SMTP_PORT))) {
+      throw new Error(
+        'MAILPIT_SMTP_PORT is not a valid number. Check your environment (.env or .env.e2e)'
+      );
+    }
+
+    return nodemailer.createTransport({
+      host: process.env.MAILPIT_SMTP_HOST || 'localhost',
+      port: Number(MAILPIT_SMTP_PORT),
+      secure: false
+    });
+  }
+
+  if (!process.env.MAILGUN_KEY) {
+    throw new Error('Mailgun key missing');
+  }
+
+  const auth = {
+    api_key: process.env.MAILGUN_KEY,
+    domain: process.env.MAILGUN_DOMAIN
+  };
+
+  return nodemailer.createTransport(mg({ auth }));
+}
+
+/** Mail service class wrapping around mailgun */
+class Mail {
+  client: nodemailer.Transporter;
+
+  sendOptions: Pick<nodemailer.SendMailOptions, 'from'>;
+
+  constructor() {
+    this.client = createTransport();
+    this.sendOptions = {
+      from: process.env.EMAIL_SENDER
+    };
+  }
+
+  async sendMail(mailOptions: nodemailer.SendMailOptions) {
+    try {
+      const response = await this.client.sendMail(mailOptions);
+      return response;
+    } catch (error) {
+      console.error('Failed to send email: ', error);
+      throw new Error('Email failed to send.');
+    }
+  }
+
+  async send(data: RenderedMailerData) {
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: this.sendOptions.from,
+      to: data.to,
+      subject: data.subject,
+      html: data.html
+    };
+
+    try {
+      const response = await this.sendMail(mailOptions);
+      return response;
+    } catch (error) {
+      console.error('Error in prepping email.', error);
+      throw new Error('Error in prepping email.');
+    }
+  }
+}
+
+/**
+ * Mail service wrapping around mailgun
+ */
+export const mailerService = new Mail();
