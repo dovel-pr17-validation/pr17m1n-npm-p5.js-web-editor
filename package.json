@@ -248,7 +248,7 @@
     "axios": "^1.18.1",
     "babel-plugin-styled-components": "^1.13.2",
     "bcryptjs": "^2.4.3",
-    "blob-util": "^1.2.1",
+    "blob-util": "^2.0.2",
     "body-parser": "^1.20.6",
     "bson-objectid": "^2.0.3",
     "classnames": "^2.3.1",
